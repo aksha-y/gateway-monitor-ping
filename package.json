@@ -1,0 +1,41 @@
+{
+  "name": "unifi-tool",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 50010",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 50010",
+    "lint": "next lint",
+    "worker": "tsx src/worker.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run worker\"",
+    "prod:all": "concurrently \"npm run start\" \"npm run worker\""
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "jose": "^6.2.10",
+    "lucide-react": "^1.35.0",
+    "next": "16.3.3",
+    "nodemailer": "^9.0.6",
+    "papaparse": "^5.7.0",
+    "ping": "^1.0.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
+    "@types/papaparse": "^5.5.2",
+    "@types/ping": "^0.4.4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^10.0.5",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.3",
+    "tsx": "^4.23.12",
+    "typescript": "^5"
+  }
+}
