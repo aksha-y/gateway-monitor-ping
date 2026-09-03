@@ -18,17 +18,22 @@ A comprehensive, self-hosted monitoring solution designed specifically for track
 - **Linear Outage Tracking**: Outages are tracked chronologically from `start_time` to `recovery_time`.
 - **Downtime Calculation**: System actively aggregates total downtime in seconds for auditing and SLA compliance.
 
-### 3. Secure Email Alerting
+### 3. Native UniFi Controller Integration
+- **Direct API Connection**: Securely connect the tool directly to your UniFi OS or standalone controllers (v5, v6, v7+).
+- **Automated Site Import**: Easily fetch and import gateways directly from your connected UniFi server, eliminating manual data entry.
+- **Dynamic DHCP Support**: Perfect for DHCP gateways where public IPs might change. By querying the controller API, the tool maintains accurate tracking without relying on a static IP address.
+
+### 4. Secure Email Alerting
 - **No Alert Spam**: The system guarantees exactly ONE alert when the gateway drops, and exactly ONE recovery email when it comes back online.
 - **Queue System**: Alerts are held in a `PENDING` state and safely retried if your SMTP server is temporarily unreachable.
 - **Encrypted Credentials**: SMTP passwords are encrypted at rest via AES-256.
 
-### 4. Enterprise Data Management
+### 5. Enterprise Data Management
 - **Bulk CSV Import**: Import thousands of properties at once with strict pre-import validation.
 - **Comprehensive History**: Every state transition is permanently logged for auditing.
 - **Audit Logs**: Administrative actions (Logins, Logouts, Property Additions) are tracked securely.
 
-### 5. Secure Architecture
+### 6. Secure Architecture
 - **Authentication**: JWT-based session management locked behind a local SQLite database using strong `bcryptjs` password hashing.
 - **Zero Dependencies**: Utilizes an embedded SQLite database (`better-sqlite3`). No need to install MySQL or PostgreSQL. Completely portable.
 
