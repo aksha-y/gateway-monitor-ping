@@ -11,8 +11,14 @@ export default function Dashboard() {
   
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [userRole, setUserRole] = useState('MONITOR');
 
   useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(d => setUserRole(d.role || 'MONITOR'))
+      .catch(() => {});
+
     fetchProperties();
     fetchHealth();
     const interval = setInterval(() => {
@@ -43,17 +49,33 @@ export default function Dashboard() {
     }
   };
 
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
   const handleTestNow = async (prop: any) => {
     setTestingId(prop.id);
     try {
-      await fetch('/api/ping', {
+      const res = await fetch('/api/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ip: prop.gateway_ip })
       });
+      const data = await res.json();
+      
+      if (data.reachable) {
+        showToast(`Ping successful! Response time: ${Math.round(data.time)}ms`, 'success');
+      } else {
+        showToast(`Host unreachable or ping timed out.`, 'error');
+      }
+      
       await fetchProperties();
     } catch (error) {
       console.error('Ping failed', error);
+      showToast('Error executing ping test.', 'error');
     } finally {
       setTestingId(null);
     }
@@ -94,6 +116,25 @@ export default function Dashboard() {
 
   return (
     <div>
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '32px',
+          zIndex: 100,
+          padding: '16px 24px',
+          borderRadius: '8px',
+          color: '#fff',
+          fontWeight: 500,
+          boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+          animation: 'slideUp 0.3s ease-out',
+          backgroundColor: toast.type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)',
+          backdropFilter: 'blur(8px)'
+        }}>
+          {toast.message}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
           <h1>Dashboard</h1>
@@ -101,7 +142,7 @@ export default function Dashboard() {
         </div>
         
         {health && (
-          <div className="stat-card" style={{ display: 'flex', gap: '24px', padding: '16px 24px', fontSize: '0.85rem' }}>
+          <div className="stat-card" style={{ display: 'flex', flexDirection: 'row', gap: '24px', padding: '16px 24px', fontSize: '0.85rem' }}>
             <div>
               <div style={{ color: 'var(--muted)', marginBottom: '4px' }}>Monitoring Worker</div>
               <div style={{ color: health.worker === 'RUNNING' ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
@@ -122,29 +163,29 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: '24px' }}>
+      <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-title">Total</div>
           <div className="stat-value">{total}</div>
         </div>
-        <div className="stat-card" style={{ borderTop: '4px solid var(--success)' }}>
+        <div className="stat-card stat-success">
           <div className="stat-title">Online</div>
           <div className="stat-value">{online}</div>
         </div>
-        <div className="stat-card" style={{ borderTop: '4px solid var(--warning)' }}>
+        <div className="stat-card stat-warning">
           <div className="stat-title">Possible Down</div>
           <div className="stat-value">{possibleDown}</div>
         </div>
-        <div className="stat-card" style={{ borderTop: '4px solid var(--danger)' }}>
+        <div className="stat-card stat-danger">
           <div className="stat-title">Down</div>
           <div className="stat-value">{down}</div>
         </div>
-        <div className="stat-card" style={{ borderTop: '4px solid var(--muted)' }}>
+        <div className="stat-card">
           <div className="stat-title">Disabled</div>
           <div className="stat-value">{disabled}</div>
         </div>
         {monitoringError > 0 && (
-          <div className="stat-card" style={{ borderTop: '4px solid #991b1b' }}>
+          <div className="stat-card stat-danger">
             <div className="stat-title">Mon Error</div>
             <div className="stat-value">{monitoringError}</div>
           </div>
@@ -181,12 +222,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="table-container">
+    <div className="table-container">
         <table>
           <thead>
             <tr>
               <th>Property</th>
-              <th>Gateway IP</th>
+              <th>Target</th>
               <th>Status</th>
               <th>Last Success</th>
               <th>Last Check</th>
@@ -229,13 +270,25 @@ export default function Dashboard() {
 
               const alertStr = prop.last_alert_status ? `${prop.last_alert_type} (${prop.last_alert_status})` : '-';
 
+              const isIcmp = !prop.monitoring_method || prop.monitoring_method === 'ICMP';
+              const targetStr = isIcmp 
+                ? prop.gateway_ip 
+                : `${prop.site_name} \u2192 ${prop.gateway_name}`;
+
               return (
                 <tr key={prop.id}>
                   <td>
                     <strong>{prop.property_id}</strong><br/>
                     <span style={{ fontSize: '0.8rem', color: 'var(--muted)'}}>{prop.property_name}</span>
                   </td>
-                  <td>{prop.gateway_ip}</td>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span>{targetStr}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                        {isIcmp ? 'ICMP' : 'UniFi API'}
+                      </span>
+                    </div>
+                  </td>
                   <td>
                     <span className={`badge ${badgeClass}`}>{statusText.replace('_', ' ')}</span>
                   </td>
@@ -246,7 +299,7 @@ export default function Dashboard() {
                     {prop.last_check ? new Date(prop.last_check).toLocaleTimeString() : '-'}
                   </td>
                   <td>
-                    {prop.response_time ? `${Math.round(prop.response_time)} ms` : '-'}
+                    {prop.response_time && isIcmp ? `${Math.round(prop.response_time)} ms` : '-'}
                   </td>
                   <td>{currentDowntime}</td>
                   <td>{alertStr}</td>
@@ -255,7 +308,8 @@ export default function Dashboard() {
                     <button 
                       className="btn btn-outline" 
                       onClick={() => handleTestNow(prop)}
-                      disabled={testingId === prop.id || !prop.enabled}
+                      disabled={testingId === prop.id || !prop.enabled || !isIcmp || userRole === 'MONITOR'}
+                      title={userRole === 'MONITOR' ? 'Unauthorized' : (!isIcmp ? 'Manual test only available for ICMP' : '')}
                     >
                       {testingId === prop.id ? (
                         <Loader2 size={16} className="animate-spin" />

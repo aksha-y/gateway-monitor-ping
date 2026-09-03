@@ -22,41 +22,63 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const role = request.headers.get('x-user-role');
+  if (role === 'MONITOR') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { property_id, property_name, gateway_ip, enabled, notes } = body;
+    const { 
+      property_id, property_name, enabled, notes,
+      monitoring_method, gateway_ip,
+      controller_id, site_id, site_name, device_mac, device_id, gateway_name
+    } = body;
 
-    if (!property_id || !property_name || !gateway_ip) {
+    if (!property_id || !property_name) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // IP validation
-    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-    if (!ipv4Regex.test(gateway_ip)) {
-      return NextResponse.json({ error: 'Invalid IPv4 address' }, { status: 400 });
+    const method = monitoring_method || 'ICMP';
+
+    if (method === 'ICMP') {
+      if (!gateway_ip) return NextResponse.json({ error: 'Gateway IP required for ICMP' }, { status: 400 });
+      const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      if (!ipv4Regex.test(gateway_ip)) {
+        return NextResponse.json({ error: 'Invalid IPv4 address' }, { status: 400 });
+      }
+    } else if (method === 'UNIFI_CONTROLLER') {
+      if (!controller_id || !site_id || (!device_mac && !device_id)) {
+        return NextResponse.json({ error: 'Missing controller configuration fields' }, { status: 400 });
+      }
     }
 
-    // Check duplicate ID
     const existingId = db.prepare('SELECT id FROM properties WHERE property_id = ?').get(property_id);
     if (existingId) {
       return NextResponse.json({ error: 'Property ID already exists' }, { status: 400 });
     }
 
     const stmt = db.prepare(`
-      INSERT INTO properties (property_id, property_name, gateway_ip, enabled, notes)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO properties (
+        property_id, property_name, monitoring_method, gateway_ip, 
+        controller_id, site_id, site_name, device_mac, device_id, gateway_name, 
+        enabled, notes
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
-    const info = stmt.run(property_id, property_name, gateway_ip, enabled ? 1 : 0, notes || null);
+    const info = stmt.run(
+      property_id, property_name, method, method === 'ICMP' ? gateway_ip : "",
+      controller_id || null, site_id || null, site_name || null, device_mac || null, device_id || null, gateway_name || null,
+      enabled ? 1 : 0, notes || null
+    );
     
-    // Create initial monitoring state
-    const stateStmt = db.prepare(`
+    db.prepare(`
       INSERT INTO monitoring_state (property_id, current_status)
       VALUES (?, 'NOT_CHECKED')
-    `);
-    stateStmt.run(property_id);
+    `).run(property_id);
 
-    logAuditAction(request, 'PROPERTY_ADDED', `ID: ${property_id}, Name: ${property_name}, IP: ${gateway_ip}`);
+    logAuditAction(request, 'PROPERTY_ADDED', `ID: ${property_id}, Name: ${property_name}, Method: ${method}`);
 
     return NextResponse.json({ success: true, id: info.lastInsertRowid });
   } catch (error: any) {

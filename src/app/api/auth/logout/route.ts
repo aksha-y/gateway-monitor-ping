@@ -13,6 +13,6 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json({ success: true });
-  response.cookies.delete('auth_token');
+  response.cookies.delete('unifi_auth_token');
   return response;
 }

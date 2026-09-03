@@ -226,7 +226,7 @@ export default function SettingsPage() {
             )}
 
             <form onSubmit={handleTestSmtp} style={{ display: 'flex', gap: '12px' }}>
-              <input className="form-input" type="email" required placeholder="Test recipient email" value={testEmail} onChange={e => setTestEmail(e.target.value)} style={{ flex: 1 }} />
+              <input className="form-input" type="email" multiple required placeholder="test1@example.com, test2@example.com" value={testEmail} onChange={e => setTestEmail(e.target.value)} style={{ flex: 1 }} />
               <button className="btn btn-outline" type="submit" disabled={testing}>
                 {testing ? 'Sending...' : 'Send Test Email'}
               </button>
@@ -307,7 +307,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email</label>
-                  <input className="form-input" type="email" required value={recipientForm.email} onChange={e => setRecipientForm({...recipientForm, email: e.target.value})} placeholder="support@example.com" />
+                  <input className="form-input" type="text" required value={recipientForm.email} onChange={e => setRecipientForm({...recipientForm, email: e.target.value})} placeholder="support@example.com, alerts@example.com" />
                 </div>
                 <div className="form-group">
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>

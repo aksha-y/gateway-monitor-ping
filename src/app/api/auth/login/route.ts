@@ -17,18 +17,24 @@ export async function POST(request: Request) {
       db.prepare(`INSERT INTO audit_log (username, action, details) VALUES (?, 'LOGIN_FAILED', 'Invalid credentials')`).run(username || 'unknown');
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
-
-    const token = await signToken({ id: user.id, username: user.username });
     
+    if (user.enabled === 0) {
+      db.prepare(`INSERT INTO audit_log (username, action, details) VALUES (?, 'LOGIN_FAILED', 'Account disabled')`).run(username);
+      return NextResponse.json({ error: 'Account disabled' }, { status: 403 });
+    }
+
+    const token = await signToken({ id: user.id, username: user.username, role: user.role });
+    
+    db.prepare(`UPDATE users SET last_login = ? WHERE id = ?`).run(new Date().toISOString(), user.id);
     db.prepare(`INSERT INTO audit_log (username, action) VALUES (?, 'LOGIN_SUCCESS')`).run(user.username);
 
     const response = NextResponse.json({ success: true });
     response.cookies.set({
-      name: 'auth_token',
+      name: 'unifi_auth_token',
       value: token,
       httpOnly: true,
-      secure: false, // Must be false for local IP HTTP access
-      sameSite: 'lax', // Must be lax to work properly across local networks
+      secure: true,
+      sameSite: 'lax',
       maxAge: 60 * 60 * 24 // 24 hours
     });
 

@@ -14,7 +14,11 @@ export async function PUT(
     let values = [];
 
     if (name !== undefined) { updates.push('name = ?'); values.push(name); }
-    if (email !== undefined) { updates.push('email = ?'); values.push(email); }
+    if (email !== undefined) { 
+      const cleanEmail = email.replace(/[\s;]+/g, ',').replace(/,+/g, ',').replace(/^,|,$/g, '');
+      updates.push('email = ?'); 
+      values.push(cleanEmail); 
+    }
     if (enabled !== undefined) { updates.push('enabled = ?'); values.push(enabled ? 1 : 0); }
 
     if (updates.length === 0) {

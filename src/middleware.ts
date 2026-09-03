@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get('auth_token')?.value;
+  const token = request.cookies.get('unifi_auth_token')?.value;
 
   if (!token) {
     if (pathname.startsWith('/api')) {
@@ -38,6 +38,7 @@ export async function middleware(request: NextRequest) {
   // Pass user info to headers for API routes
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-user-username', payload.username as string);
+  requestHeaders.set('x-user-role', payload.role as string || 'ADMIN');
 
   return NextResponse.next({
     request: {

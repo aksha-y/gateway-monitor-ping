@@ -1,5 +1,5 @@
 "use client";
-
+import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from "next/navigation";
 import Link from 'next/link';
 import { LayoutDashboard, Server, Settings, UploadCloud, Clock, AlertTriangle, Bell, LogOut, Shield } from 'lucide-react';
@@ -9,6 +9,17 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
   const router = useRouter();
   
   const isLoginPage = pathname === '/login';
+
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isLoginPage) {
+      fetch('/api/auth/me')
+        .then(res => res.json())
+        .then(data => setCurrentUser(data))
+        .catch(() => {});
+    }
+  }, [isLoginPage]);
 
   const handleLogout = async () => {
     try {
@@ -20,6 +31,8 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
   if (isLoginPage) {
     return <>{children}</>;
   }
+
+  const role = currentUser?.role || 'MONITOR';
 
   return (
     <div className="layout">
@@ -37,10 +50,6 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
             <Server size={20} />
             Properties
           </Link>
-          <Link href="/import" className="nav-item">
-            <UploadCloud size={20} />
-            Bulk Import
-          </Link>
           <Link href="/history" className="nav-item">
             <Clock size={20} />
             History
@@ -49,18 +58,42 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
             <AlertTriangle size={20} />
             Outages
           </Link>
-          <Link href="/audit" className="nav-item">
-            <Shield size={20} />
-            Audit Log
-          </Link>
+
+          {role === 'SUPER_ADMIN' && (
+            <>
+              <Link href="/controllers" className="nav-item">
+                <Server size={20} />
+                Controllers
+              </Link>
+              <Link href="/users" className="nav-item">
+                <Shield size={20} />
+                Users
+              </Link>
+              <Link href="/audit" className="nav-item">
+                <Shield size={20} />
+                Audit Log
+              </Link>
+            </>
+          )}
+
+          {role !== 'MONITOR' && (
+            <Link href="/import" className="nav-item">
+              <UploadCloud size={20} />
+              Bulk Import
+            </Link>
+          )}
+          
           <div className="nav-item" style={{ opacity: 0.5, cursor: 'not-allowed' }} title="Coming in a future phase">
             <Bell size={20} />
             Notifications
           </div>
-          <Link href="/settings" className="nav-item">
-            <Settings size={20} />
-            Settings
-          </Link>
+
+          {role === 'SUPER_ADMIN' && (
+            <Link href="/settings" className="nav-item">
+              <Settings size={20} />
+              Settings
+            </Link>
+          )}
         </nav>
         
         <div style={{ marginTop: 'auto', padding: '16px' }}>

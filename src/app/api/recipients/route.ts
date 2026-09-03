@@ -19,12 +19,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name and Email are required' }, { status: 400 });
     }
 
+    const cleanEmail = email.replace(/[\s;]+/g, ',').replace(/,+/g, ',').replace(/^,|,$/g, '');
+
     const stmt = db.prepare(`
       INSERT INTO notification_recipients (name, email, enabled)
       VALUES (?, ?, ?)
     `);
     
-    const info = stmt.run(name, email, enabled ? 1 : 0);
+    const info = stmt.run(name, cleanEmail, enabled ? 1 : 0);
     return NextResponse.json({ success: true, id: info.lastInsertRowid });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

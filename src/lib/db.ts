@@ -11,7 +11,14 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     property_id TEXT UNIQUE NOT NULL,
     property_name TEXT NOT NULL,
-    gateway_ip TEXT NOT NULL,
+    monitoring_method TEXT DEFAULT 'ICMP',
+    gateway_ip TEXT,
+    controller_id INTEGER,
+    site_id TEXT,
+    site_name TEXT,
+    device_mac TEXT,
+    device_id TEXT,
+    gateway_name TEXT,
     enabled INTEGER DEFAULT 1,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -84,10 +91,26 @@ db.exec(`
     FOREIGN KEY(property_id) REFERENCES properties(property_id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS unifi_controllers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    username TEXT NOT NULL,
+    password_enc TEXT NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'ADMIN',
+    name TEXT,
+    email TEXT,
+    enabled INTEGER DEFAULT 1,
+    last_login DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -121,6 +144,57 @@ try {
   if (!columns.includes('current_outage_id')) {
     db.exec("ALTER TABLE monitoring_state ADD COLUMN current_outage_id TEXT;");
   }
+  
+  // Phase 6 migrations for properties table
+  const propTableInfo = db.prepare("PRAGMA table_info(properties)").all() as any[];
+  const propCols = propTableInfo.map(col => col.name);
+  if (!propCols.includes('monitoring_method')) {
+    db.exec("ALTER TABLE properties ADD COLUMN monitoring_method TEXT DEFAULT 'ICMP';");
+  }
+  if (!propCols.includes('controller_id')) {
+    db.exec("ALTER TABLE properties ADD COLUMN controller_id INTEGER;");
+  }
+  if (!propCols.includes('site_id')) {
+    db.exec("ALTER TABLE properties ADD COLUMN site_id TEXT;");
+  }
+  if (!propCols.includes('site_name')) {
+    db.exec("ALTER TABLE properties ADD COLUMN site_name TEXT;");
+  }
+  if (!propCols.includes('device_mac')) {
+    db.exec("ALTER TABLE properties ADD COLUMN device_mac TEXT;");
+  }
+  if (!propCols.includes('device_id')) {
+    db.exec("ALTER TABLE properties ADD COLUMN device_id TEXT;");
+  }
+  if (!propCols.includes('gateway_name')) {
+    db.exec("ALTER TABLE properties ADD COLUMN gateway_name TEXT;");
+  }
+  // Make gateway_ip nullable for controller-based properties
+  // SQLite doesn't directly support altering a column to nullable, but we can just leave it as is 
+  // since old constraints aren't strictly enforced on existing null inserts unless we recreate the table.
+  // Actually, standard SQLite ALTER TABLE can't drop NOT NULL. It's better to just provide empty strings if needed, 
+  // or we can recreate the table. But for now, we'll just insert '' for gateway_ip if not provided.
+
+  // Phase 6 migrations for users table
+  const userTableInfo = db.prepare("PRAGMA table_info(users)").all() as any[];
+  const userCols = userTableInfo.map(col => col.name);
+  if (!userCols.includes('role')) {
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'ADMIN';");
+    // Ensure the original admin user is a SUPER_ADMIN
+    db.exec("UPDATE users SET role = 'SUPER_ADMIN' WHERE username = 'admin';");
+  }
+  if (!userCols.includes('name')) {
+    db.exec("ALTER TABLE users ADD COLUMN name TEXT;");
+  }
+  if (!userCols.includes('email')) {
+    db.exec("ALTER TABLE users ADD COLUMN email TEXT;");
+  }
+  if (!userCols.includes('enabled')) {
+    db.exec("ALTER TABLE users ADD COLUMN enabled INTEGER DEFAULT 1;");
+  }
+  if (!userCols.includes('last_login')) {
+    db.exec("ALTER TABLE users ADD COLUMN last_login DATETIME;");
+  }
 } catch (e) {
   console.error("Migration error:", e);
 }
@@ -132,7 +206,7 @@ try {
     // default password: password123
     // generated using bcryptjs.hashSync('password123', 10)
     const defaultHash = '$2b$10$DMB1IzAUT3ockTt5.BpBMeLHbXot.cr0jw3KwvOOTAJ88.9D5QxkG'; 
-    db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run('admin', defaultHash);
+    db.prepare('INSERT INTO users (username, password_hash, role, name, email) VALUES (?, ?, ?, ?, ?)').run('admin', defaultHash, 'SUPER_ADMIN', 'Super Admin', 'admin@example.com');
   }
 } catch (e) {
   console.error("Seed error:", e);
